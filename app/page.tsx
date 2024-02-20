@@ -12,19 +12,67 @@ import {
 import Link from "next/link";
 import { DEBUG_HUB_OPTIONS } from "./debug/constants";
 
+export enum PageType {
+  LeaveMessage = 1,
+  BlankText = 2,
+  ViewBookNoMessage = 3,
+  LeftMessage = 4,
+  ViewBookWithMessage = 5,
+}
+
 type State = {
-  active: string;
-  total_button_presses: number;
+  pageIndex: PageType;
+  leftMessage: boolean;
 };
 
-const initialState = { active: "1", total_button_presses: 0 };
+const photoUrls = [
+  "https://picsum.photos/seed/frames.js-0/1146/600",
+  "https://picsum.photos/seed/frames.js-1/1146/600",
+  "https://picsum.photos/seed/frames.js-2/1146/600",
+  "https://picsum.photos/seed/frames.js-3/1146/600",
+  "https://picsum.photos/seed/frames.js-4/1146/600",
+];
+
+const photoText = [
+  "Leave a message",
+  "Yo, please leave a message",
+  "To view book, leave a message",
+  "Thanks!",
+  "Here book",
+];
+
+const allMessages: string[] = [];
+
+const initialState: State = {
+  pageIndex: PageType.LeaveMessage,
+  leftMessage: false,
+};
 
 const reducer: FrameReducer<State> = (state, action) => {
+  const buttonIndex = action.postBody?.untrustedData.buttonIndex;
+
+  const didUserClickSubmit = buttonIndex === 1;
+
+  // Case: left message and clicked view book, show "ViewBookNoMessage" page
+  if (state.leftMessage && !didUserClickSubmit) {
+    return {
+      pageIndex: PageType.ViewBookNoMessage,
+      leftMessage: false,
+    };
+  }
+
+  // Case: left message and clicked submit, show "ViewBookWithMessage" page
+  if (state.leftMessage && didUserClickSubmit) {
+    return {
+      pageIndex: PageType.ViewBookWithMessage,
+      leftMessage: true,
+    };
+  }
+
+  // Default, show "LeaveMessage" page
   return {
-    total_button_presses: state.total_button_presses + 1,
-    active: action.postBody?.untrustedData.buttonIndex
-      ? String(action.postBody?.untrustedData.buttonIndex)
-      : "1",
+    pageIndex: PageType.LeftMessage,
+    leftMessage: true,
   };
 };
 
@@ -35,24 +83,22 @@ export default async function Home({
 }: NextServerPageProps) {
   const previousFrame = getPreviousFrame<State>(searchParams);
 
-  const frameMessage = await getFrameMessage(previousFrame.postBody, {
-    ...DEBUG_HUB_OPTIONS,
-  });
+  const frameMessage = await getFrameMessage(previousFrame.postBody);
 
   if (frameMessage && !frameMessage?.isValid) {
     throw new Error("Invalid frame payload");
   }
 
-  const [state, dispatch] = useFramesReducer<State>(
-    reducer,
-    initialState,
-    previousFrame
-  );
+  const message: string | undefined = frameMessage?.inputText;
 
-  // Here: do a server side side effect either sync or async (using await), such as minting an NFT if you want.
-  // example: load the users credentials & check they have an NFT
+  // Case: user has left a message, record it in the guestbook
+  if (message) {
+    allMessages.push(message);
+  }
 
-  console.log("info: state is:", state);
+  const bookUrl = "https://i.postimg.cc/pr8VFQ1d/Renaissance-Painting.png";
+
+  const [state] = useFramesReducer<State>(reducer, initialState, previousFrame);
 
   if (frameMessage) {
     const {
@@ -69,42 +115,29 @@ export default async function Home({
       requesterVerifiedAddresses,
       requesterUserData,
     } = frameMessage;
-
-    console.log("info: frameMessage is:", frameMessage);
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_HOST || "http://localhost:3000";
+  const imageUrl = photoUrls[state.pageIndex - 1];
 
   // then, when done, return next frame
   return (
-    <div className="p-4">
-      frames.js starter kit. The Template Frame is on this page, it&apos;s in
-      the html meta tags (inspect source).{" "}
-      <Link href={`/debug?url=${baseUrl}`} className="underline">
-        Debug
-      </Link>
+    <div>
+      Guestbook <Link href={`/debug?url=${baseUrl}`}>Debug</Link>
       <FrameContainer
-        postUrl="/frames"
         pathname="/"
+        postUrl={`${baseUrl}/frames`}
         state={state}
         previousFrame={previousFrame}
       >
-        {/* <FrameImage src="https://framesjs.org/og.png" /> */}
-        <FrameImage aspectRatio="1.91:1">
-          <div tw="w-full h-full bg-slate-700 text-white justify-center items-center">
-            {frameMessage?.inputText ? frameMessage.inputText : "Hello world"}
+        <FrameImage aspectRatio="1:1">
+          <div tw="flex flex-col">
+            <img height="1000" width="1000" src={bookUrl} alt="Image" />
           </div>
         </FrameImage>
-        <FrameInput text="put some text here" />
-        <FrameButton>
-          {state?.active === "1" ? "Active" : "Inactive"}
-        </FrameButton>
-        <FrameButton>
-          {state?.active === "2" ? "Active" : "Inactive"}
-        </FrameButton>
-        <FrameButton action="link" target={`https://www.google.com`}>
-          External
-        </FrameButton>
+        <FrameInput text="leave a message" />
+        <FrameButton>Submit</FrameButton>
+        <FrameButton>View Guest Book</FrameButton>
       </FrameContainer>
     </div>
   );
