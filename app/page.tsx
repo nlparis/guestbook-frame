@@ -12,7 +12,7 @@ import {
 import Link from "next/link";
 import { DEBUG_HUB_OPTIONS } from "./debug/constants";
 
-export enum PageType {
+enum PageType {
   LeaveMessage = 1,
   BlankText = 2,
   ViewBookNoMessage = 3,
@@ -24,24 +24,6 @@ type State = {
   pageIndex: PageType;
   leftMessage: boolean;
 };
-
-const photoUrls = [
-  "https://picsum.photos/seed/frames.js-0/1146/600",
-  "https://picsum.photos/seed/frames.js-1/1146/600",
-  "https://picsum.photos/seed/frames.js-2/1146/600",
-  "https://picsum.photos/seed/frames.js-3/1146/600",
-  "https://picsum.photos/seed/frames.js-4/1146/600",
-];
-
-const photoText = [
-  "Leave a message",
-  "Yo, please leave a message",
-  "To view book, leave a message",
-  "Thanks!",
-  "Here book",
-];
-
-const allMessages: string[] = [];
 
 const initialState: State = {
   pageIndex: PageType.LeaveMessage,
@@ -77,48 +59,14 @@ const reducer: FrameReducer<State> = (state, action) => {
 };
 
 // This is a react server component only
-export default async function Home({
-  params,
-  searchParams,
-}: NextServerPageProps) {
+export default function Home({ params, searchParams }: NextServerPageProps) {
   const previousFrame = getPreviousFrame<State>(searchParams);
-
-  const frameMessage = await getFrameMessage(previousFrame.postBody);
-
-  if (frameMessage && !frameMessage?.isValid) {
-    throw new Error("Invalid frame payload");
-  }
-
-  const message: string | undefined = frameMessage?.inputText;
-
-  // Case: user has left a message, record it in the guestbook
-  if (message) {
-    allMessages.push(message);
-  }
 
   const bookUrl = "https://i.postimg.cc/pr8VFQ1d/Renaissance-Painting.png";
 
   const [state] = useFramesReducer<State>(reducer, initialState, previousFrame);
 
-  if (frameMessage) {
-    const {
-      isValid,
-      buttonIndex,
-      inputText,
-      castId,
-      requesterFid,
-      casterFollowsRequester,
-      requesterFollowsCaster,
-      likedCast,
-      recastedCast,
-      requesterCustodyAddress,
-      requesterVerifiedAddresses,
-      requesterUserData,
-    } = frameMessage;
-  }
-
   const baseUrl = process.env.NEXT_PUBLIC_HOST || "http://localhost:3000";
-  const imageUrl = photoUrls[state.pageIndex - 1];
 
   // then, when done, return next frame
   return (
